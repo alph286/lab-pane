@@ -1,6 +1,6 @@
 {
   "name": "lab-pane",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pannello laterale `lab`: log dei lavori sulla GPU del lab in diretta, con stato della GPU e del lock.",
   "types": "./types/index.d.ts",
   "userConfig": {

@@ -38,6 +38,8 @@ test('il pannello mostra file, stato, GPU e righe', async ($, on) => {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /prove\/img2img\/gen\.log/ }))?.text).toBe('~/prove/img2img/gen.log')
     expect(await ui.find({ type: 'Text', text: /GPU 74%/ })).toBeDefined()
+    expect(await ui.find({ type: 'Client', key: 'title' })).toBeDefined()
+    expect(await ui.find({ type: 'Client', key: 'stream' })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Traceback boom/ })).toBeDefined()
     await ui.unmount()
   }

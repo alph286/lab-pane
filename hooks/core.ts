@@ -197,6 +197,24 @@ export function pctSegments(line: string): Seg[] {
   return out.length ? out : [{ text: line, pct: false }]
 }
 
+/**
+ * Avanzamento del lavoro (0-100) dall'ultima riga che ne porta uno: "37%" vince, se no "N/M".
+ * null se nelle righe recenti non c'è; una riga di intestazione (== ...) segna un lavoro nuovo e ferma la ricerca.
+ */
+export function progressOf(v: Pick<LabView, 'lines' | 'open'>): number | null {
+  const all = v.open.trim() !== '' ? [...v.lines, v.open] : v.lines
+  for (let i = all.length - 1; i >= 0; i--) {
+    const t = all[i] ?? ''
+    const pcts = [...t.matchAll(/(\d+(?:[.,]\d+)?)%/g)]
+    const last = pcts[pcts.length - 1]
+    if (last) return Math.max(0, Math.min(100, parseFloat((last[1] ?? '0').replace(',', '.'))))
+    const frac = t.match(/\b(\d+)\s*\/\s*(\d+)\b/)
+    if (frac && Number(frac[2]) > 0) return Math.max(0, Math.min(100, (Number(frac[1]) / Number(frac[2])) * 100))
+    if (/^\s*==/.test(t)) return null
+  }
+  return null
+}
+
 // ---------------------------------------------------------------- stato e fine
 
 const END = /^\s*(Fatto|ERRORE|finito)\b/i

@@ -11,6 +11,7 @@ import {
   feed,
   lastLineOf,
   openLine,
+  progressOf,
   shouldStop,
   sshArgv,
   validHost,
@@ -38,12 +39,28 @@ let buf: Feed = emptyFeed()
 let ignoreTextUntil = 0
 let flushing = false
 
+// Palette al neon (cyberpunk).
+const NEON = {
+  cyan: '#00f0ff',
+  magenta: '#ff2bd6',
+  yellow: '#f5ff3b',
+  green: '#39ff14',
+  red: '#ff3860',
+  violet: '#9d4dff',
+  dim: '#4a4f6a',
+  faint: '#2e3248',
+} as const
+
 const STATUS_COLOR: Record<Status, string> = {
-  'in corso': 'suggestion',
-  fatto: 'success',
-  errore: 'error',
-  fermo: 'inactive',
+  'in corso': NEON.cyan,
+  fatto: NEON.green,
+  errore: NEON.red,
+  fermo: NEON.dim,
 }
+
+// Un modulo di superficie che si guasta su una superficie lì si disegna fermo (come flightdeck).
+const faulted = new Set<string>()
+const faultKey = (surface: string, module: string) => `${surface}:${module.split(/[\\/]/).pop()}`
 
 type Cfg = { host: string; rows: number; openOnLabRunner: boolean }
 let cfg: Cfg = { host: 'lab', rows: 14, openOnLabRunner: true }
@@ -260,26 +277,95 @@ export const register: Register = (on, options) => {
     return res
   })
 
+  on('ui.fault', async ($, e, next) => {
+    const key = faultKey(e.surface, e.module)
+    if (e.requestId === PANE && !faulted.has(key)) {
+      faulted.add(key)
+      $.ui.log(`lab-pane: ${e.module} guasto su ${e.surface} (${e.phase}: ${e.reason}); lo disegno senza animazione`)
+      $.ui.invalidate('ui.render')
+    }
+    return next(e)
+  })
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e)
+    const els = $.ui.resolve(e)
+    const { Box, Text } = els
+    const hasClient = 'Client' in els
+    const canTitle = hasClient && !faulted.has(faultKey(e.surface, 'title.tsx'))
+    const canStream = hasClient && !faulted.has(faultKey(e.surface, 'stream.tsx'))
     const s: LabView = await read($, view)
     const cols = e.props.bodyColumns
-    const room = Math.max(1, e.props.scroll.bodyRows - 5)
+    const wide = cols >= 40
+    const room = Math.max(1, e.props.scroll.bodyRows - (wide ? 7 : 5))
     const d = describe(s, cols, Math.min(cfg.rows, room))
+    // si anima solo mentre il lab lavora e la connessione è viva
+    const active = d.status === 'in corso' && s.conn === 'on'
+    const tail = `· ${cfg.host.toUpperCase()} ${d.status.toUpperCase()}`
+    // segnale disturbato: ssh caduto o in riconnessione, oppure il lavoro è finito in errore
+    const noisy = s.conn === 'lost' || s.conn === 'connecting' || d.status === 'errore'
+    const pct = d.status === 'fatto' ? 100 : progressOf(s)
+    const titleProps = {
+      text: 'LAB-RUNNERS',
+      tail,
+      beat: s.lastLineAt,
+      noisy,
+      base: NEON.magenta,
+      wave: NEON.cyan,
+      glitch: NEON.yellow,
+      tailColor: STATUS_COLOR[d.status],
+      frame: NEON.violet,
+    }
 
     return (
       <Box flexDirection="column">
-        <Text bold wrap="truncate">
+        {/* Come flightdeck: sotto i 40 colonne basta il titolo della cornice. */}
+        {wide &&
+          (canTitle ? (
+            <els.Client key="title" module="./title.tsx" width={cols} height={1} props={titleProps} />
+          ) : (
+            <Box justifyContent="center" width={cols}>
+              <Text wrap="truncate">
+                <Text color={NEON.violet}>░▒▓ </Text>
+                <Text color={NEON.magenta} bold>
+                  LAB-RUNNERS
+                </Text>
+                <Text color={NEON.violet}> ▓▒░</Text>
+                <Text color={STATUS_COLOR[d.status]} bold>{` ${tail}`}</Text>
+              </Text>
+            </Box>
+          ))}
+        {wide &&
+          (canStream ? (
+            <els.Client
+              key="stream"
+              module="./stream.tsx"
+              width={cols}
+              height={1}
+              props={{
+                pct,
+                beat: s.lastLineAt,
+                active,
+                width: cols,
+                fill: d.status === 'fatto' ? NEON.green : d.status === 'errore' ? NEON.red : NEON.cyan,
+                head: NEON.magenta,
+                pulse: NEON.yellow,
+                dim: NEON.faint,
+              }}
+            />
+          ) : (
+            <Text color={NEON.faint}>{'─'.repeat(Math.max(1, cols))}</Text>
+          ))}
+        <Text color={NEON.yellow} bold wrap="truncate">
           {d.file}
         </Text>
         <Text wrap="truncate">
           <Text color={STATUS_COLOR[d.status]} bold>
             {d.status}
           </Text>
-          <Text dimColor> · {d.lastText}</Text>
+          <Text color={NEON.dim}> · {d.lastText}</Text>
         </Text>
         {d.conn && (
-          <Text color="warning" wrap="truncate">
+          <Text color={NEON.yellow} wrap="truncate">
             {d.conn}
           </Text>
         )}
@@ -293,14 +379,14 @@ export const register: Register = (on, options) => {
             {d.stop}
           </Text>
         )}
-        <Text color="suggestion" wrap="truncate">
+        <Text color={NEON.cyan} wrap="truncate">
           {d.gpu}
         </Text>
         {d.rows.length === 0 && <Text dimColor>Nessuna riga di log.</Text>}
         {d.rows.map(r => {
           if (r.kind === 'error')
             return (
-              <Text color="error" wrap="truncate">
+              <Text color={NEON.red} bold wrap="truncate">
                 {r.segs[0]?.text}
               </Text>
             )
@@ -312,19 +398,19 @@ export const register: Register = (on, options) => {
             )
           if (r.kind === 'done')
             return (
-              <Text color="success" bold wrap="truncate">
+              <Text color={NEON.green} bold wrap="truncate">
                 {r.segs[0]?.text}
               </Text>
             )
           if (r.kind === 'head')
             return (
-              <Text color="warning" bold wrap="truncate">
+              <Text color={NEON.magenta} bold wrap="truncate">
                 {r.segs[0]?.text}
               </Text>
             )
           return (
             <Text wrap="truncate">
-              {r.segs.map(g => (g.pct ? <Text color="suggestion">{g.text}</Text> : g.text))}
+              {r.segs.map(g => (g.pct ? <Text color={NEON.cyan} bold>{g.text}</Text> : g.text))}
             </Text>
           )
         })}

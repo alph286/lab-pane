@@ -10,6 +10,7 @@ import {
   openLine,
   parseMarker,
   pctSegments,
+  progressOf,
   shouldStop,
   statusOf,
 } from '../hooks/core'
@@ -106,4 +107,12 @@ test('stato e vista', async () => {
   expect(d.gpu).toBe('GPU 74% · VRAM 5,6/16,0 GiB · lock: spirula (pid 3, dalle 10:00:00) da 1 h 00')
   expect(describeView(v, 12, 1).rows.length).toBe(1)
   expect(describeView(v, 12, 14).rows[0]?.segs[0]?.text.length).toBe(12)
+})
+
+test('avanzamento: ultima percentuale, se no N/M, null dopo un\'intestazione', () => {
+  expect(progressOf({ lines: ['passo 3/20 15%', 'altro'], open: '' })).toBe(15)
+  expect(progressOf({ lines: ['frame 5/10'], open: '' })).toBe(50)
+  expect(progressOf({ lines: ['passo 1/4'], open: '42,5% caricato' })).toBe(42.5)
+  expect(progressOf({ lines: ['passo 9/10', '== nuovo lavoro'], open: '' })).toBe(null)
+  expect(progressOf({ lines: [], open: '' })).toBe(null)
 })
