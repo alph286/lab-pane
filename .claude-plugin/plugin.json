@@ -1,0 +1,26 @@
+{
+  "name": "lab-pane",
+  "version": "0.1.0",
+  "description": "Pannello laterale `lab`: log dei lavori sulla GPU del lab in diretta, con stato della GPU e del lock.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "host": {
+      "type": "string",
+      "title": "Host SSH del lab",
+      "description": "Nome dell'host ssh da cui leggere il log (di norma lab).",
+      "default": "lab"
+    },
+    "rows": {
+      "type": "number",
+      "title": "Righe di log",
+      "description": "Quante righe di log mostra il pannello.",
+      "default": 14
+    },
+    "openOnLabRunner": {
+      "type": "boolean",
+      "title": "Apri con lab-runner",
+      "description": "Apre il pannello e si collega quando parte un subagente lab-runner.",
+      "default": true
+    }
+  }
+}

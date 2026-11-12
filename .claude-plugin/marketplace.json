@@ -1,0 +1,5 @@
+{
+  "name": "lab-pane",
+  "owner": { "name": "alph286" },
+  "plugins": [{ "name": "lab-pane", "source": "./" }]
+}
