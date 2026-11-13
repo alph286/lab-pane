@@ -11,19 +11,22 @@ Opzioni (in `/config`): `host` (default `lab`), `rows` (14), `openOnLabRunner` (
 
 ## Installazione
 
-Al prompt di Claude Code:
-
-```
-/plugin install lab-pane --marketplace alph286/lab-pane
-```
-
 Da una shell:
 
 ```
-claude plugin install lab-pane --marketplace alph286/lab-pane
+claude plugin marketplace add alph286/lab-pane
+claude plugin install lab-pane@lab-pane
 ```
 
-Il repo è privato: serve una credenziale git per github.com sul dispositivo (chiave SSH, oppure `gh auth login` e `gh auth setup-git`).
+Oppure al prompt di Claude Code: `/plugin marketplace add alph286/lab-pane`, poi `/plugin install lab-pane@lab-pane`. Poi riavvia Claude Code.
+
+Serve un `ssh lab` che funzioni senza password (chiave autorizzata e voce `lab` in `~/.ssh/config`); per un altro nome cambia l'opzione `host`. Prova:
+
+```
+ssh lab hostname
+```
+
+Aggiornare: `claude plugin marketplace update lab-pane` e `claude plugin update lab-pane@lab-pane`, poi riavvia Claude Code.
 
 ## Sviluppo
 
